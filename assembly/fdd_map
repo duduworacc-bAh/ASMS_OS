@@ -1,0 +1,6 @@
+LBA 0         | Bootloader
+LBA 1 - LBA 3 | FSLA
+LBA 4         | FAT8
+LBA 5 - LBA 6 | ROOT DIRECTORY
+LBA 7 - LBA 15| RESERVED
+LBA 16....    | DATA AREA

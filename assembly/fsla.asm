@@ -339,7 +339,6 @@ search_file:
     mov bl, 0xFF
     retf
 .invalid:
-    int 0x10
     pop si
     pop di
     mov cx, 11

@@ -197,8 +197,6 @@ PROMPT:
 .tkargloop2_pre:
     inc si
 .tkargloop2:
-    cmp byte [es:si], 0x20
-    je .tk2done
     cmp byte [es:si], 0x00
     je .tk2done
 
@@ -258,6 +256,7 @@ PROMPT:
     .iREM dw .rem_name, .rem_handler
     .iCHE dw .che_name, .che_handler
     .iRUN dw .run_name, .run_handler
+    .iTYP dw .typ_name, .typ_handler
     dw 0xFFFF, 0xFFFF ; End of cmdtable
 .dir_name db "DIR", 0
 .ver_name db "VER", 0
@@ -266,6 +265,7 @@ PROMPT:
 .rem_name db "DEL", 0
 .che_name db "CHECK", 0
 .run_name db "RUN", 0
+.typ_name db "TYPE", 0
 
 .dir_handler:
     call far 0x0000:0x200C
@@ -407,7 +407,73 @@ PROMPT:
     int 0x62
     ret
 .runferrdb db "Error: File Not Found!", 0x00
-    
+
+.typ_handler:
+    mov ax, 0x1000
+    mov es, ax
+    mov di, 0xE200
+    mov si, 0XE200
+    call file_convert
+    mov ax, 0x1000
+    mov ds, ax
+    mov si, 0xE200
+    call far 0x0000:0x2009
+    push cx
+    push ax
+
+    cmp bl, 0xFF
+    jne .typferr
+    jcxz .typfnull
+    mov ax, 0x3000
+    mov es, ax
+    mov ds, ax
+
+    pop ax
+
+    call far 0x0000:0x2003
+    mov ax, 0x3000
+    mov es, ax
+    mov ds, ax
+    pop cx
+
+    mov ah, 0x0E
+    mov si, 0x0000
+.typloop:
+    lodsb
+    int 0x10
+    loop .typloop
+
+    mov al, 0x0A
+    int 0x10
+    mov al, 0x0D
+    int 0x10
+
+    mov ax, 0x1000
+    mov es, ax
+    mov ds, ax
+    ret
+
+.typferr:
+    pop ax
+    pop cx
+    mov ax, 0x1000
+    mov ds, ax
+    mov es, ax
+    mov si, .typferrdb
+    int 0x62
+    ret
+.typfnull:
+    pop ax
+    pop cx
+    mov ax, 0x1000
+    mov ds, ax
+    mov es, ax
+    mov si, .typfnulldb
+    int 0x62
+    ret
+.typfnulldb db "Error: File is Empty!", 0x00
+.typferrdb db "Error: File Not Found!", 0x00
+
 .itbadcmd:
     mov si, .itbadcmderr
     int 0x62
@@ -515,7 +581,7 @@ file_convert:
 .skip_pad:
     ret
 
-.overrdb db "Filename is way too large!", 0x00
+.overrdb db "Filename is way too large or extension not specified!", 0x00
 
 
     

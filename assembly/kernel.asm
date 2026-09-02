@@ -355,6 +355,8 @@ PROMPT:
     mov ds, ax
     mov si, 0xE200
     call far 0x0000:0x2009
+    cmp bl, 0xFF
+    jne .cheferr
     mov ax, cx
     call print_dec
 
@@ -366,6 +368,14 @@ PROMPT:
     int 0x62
 
     ret
+
+.cheferr:
+    mov ax, 0x1000
+    mov ds, ax
+    mov si, .cheferrdb
+    int 0x62
+    ret
+.cheferrdb db "Error: File Not Found!", 0x00
 .chedb db " bytes", 0
 
 .run_handler:
@@ -378,6 +388,8 @@ PROMPT:
     mov ds, ax
     mov si, 0xE200
     call far 0x0000:0x2009
+    cmp bl, 0xFF
+    jne .runferr
     push ax
     mov ax, 0x3000
     mov es, ax
@@ -388,6 +400,13 @@ PROMPT:
     mov es, ax
     mov ds, ax
     ret
+.runferr:
+    mov ax, 0x1000
+    mov ds, ax
+    mov si, .runferrdb
+    int 0x62
+    ret
+.runferrdb db "Error: File Not Found!", 0x00
     
 .itbadcmd:
     mov si, .itbadcmderr

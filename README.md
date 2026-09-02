@@ -19,6 +19,10 @@ current avaible commands:
   
   **RUN**   : Arg1 = "Filename", Runs **"Filename"** No matter it's extension.
 
+  **TYPE**  : Arg1 = "Filename", Types text content in **"Filename"**.
+
+  external commands arent supported yet
+
 The Entire code was written in assembly and designed to run on CPU 80286 / i286.
 
 the system uses an 8-bit FAT with 16 bytes per root entry / 64 max files in the root directory.

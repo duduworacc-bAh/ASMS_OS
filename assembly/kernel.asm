@@ -281,8 +281,18 @@ PROMPT:
     int 0x62
     mov si, .verho
     int 0x62
-    mov si, kernel_ver
-    int 0x62
+    xor ax, ax
+    mov ax, [kernel_ver]
+    call print_dec
+    mov ah, 0x0E
+    mov al, 0x0A
+    int 0x10
+    mov al, 0x0D
+    int 0x10
+    
+    mov ax, 0x1000
+    mov ds, ax
+    mov es, ax 
     ret
 .verhn db "Aurora Software Management System", 0x00
 .verhm db "__________________________________", 0x00
@@ -630,4 +640,4 @@ print_dec:
     ret
 
 
-kernel_ver db "1.0", 0x00
+kernel_ver dw 0x0002

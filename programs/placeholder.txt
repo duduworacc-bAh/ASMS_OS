@@ -1,1 +1,4 @@
 Placeholder to Programs directory
+
+-- Extra Info --
+Programs directory are exclusive for separate integrated programs

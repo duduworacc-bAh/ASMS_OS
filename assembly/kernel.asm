@@ -289,6 +289,8 @@ PROMPT:
     int 0x10
     mov al, 0x0D
     int 0x10
+    mov al, 0x0D
+    int 0x10
     
     mov ax, 0x1000
     mov ds, ax
@@ -450,6 +452,10 @@ PROMPT:
     mov si, 0x0000
 .typloop:
     lodsb
+    cmp al, 0x0D
+    je .typbreak
+    cmp al, 0x0A
+    je .typbreak
     int 0x10
     loop .typloop
 
@@ -462,7 +468,13 @@ PROMPT:
     mov es, ax
     mov ds, ax
     ret
-
+.typbreak:
+    mov al, 0x0A
+    Int 0x10
+    mov al, 0x0D
+    int 0x10
+    jmp .typloop
+    
 .typferr:
     pop ax
     pop cx
@@ -612,7 +624,9 @@ print_dec:
     mov al, '0'
     mov ah, 0x0E
     mov bh, 0x00
+    push cx
     int 0x10
+    pop cx
     jmp .pdone
 
 .dloop:
@@ -640,4 +654,4 @@ print_dec:
     ret
 
 
-kernel_ver dw 0x0002
+kernel_ver dw 42

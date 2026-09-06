@@ -15,10 +15,10 @@ FSLA_table:
 ; File System Layout:
 ;
 ;   [Filename - 11 bytes, OFFSET 0x00 - 0x0A]
-;   [Cluster - 1 Byte, OFFSET 0x0B - 0x0B]
-;   [Reserved - OFFSET 0x0C - 0x0F] 
+;   [Cluster - 2 Bytes, OFFSET 0x0B - 0x0C]
+;   [Reserved - OFFSET 0x0F] 
 ;   16 bytes for directory entry
-;   only 1 byte for FAT clusters (only 255 Clusters)
+;   only 1 word for FAT clusters (only 2296 Clusters)
 ;   64 max root directory files.
 ;
 
@@ -40,16 +40,41 @@ load_FAT:
     xor ax, ax
     mov es, ax
     mov bx, 0x4000
-    mov ax, 4
+    mov ax, 5
     int 0x60
+    mov bx, 0x4200
+    mov ax, 6
+    int 0x60
+    mov bx, 0x4400
+    mov ax, 7
+    int 0x60
+    mov bx, 0x4600
+    mov ax, 8
+    int 0x60
+    mov bx, 0x4800
+    mov ax, 9
+    int 0x60
+    mov bx, 0x4A00
+    mov ax, 10
+    int 0x60
+    mov bx, 0x4C00
+    mov ax, 11
+    int 0x60
+    mov bx, 0x4E00
+    mov ax, 12
+    int 0x60
+    mov bx, 0x5000
+    mov ax, 13
+    int 0x60
+
 load_ROOT:
     xor ax, ax
     mov es, ax
-    mov bx, 0x4200
-    mov ax, 5
+    mov bx, 0x5200
+    mov ax, 14
     int 0x60
-    mov bx, 0x4400
-    mov ax, 6
+    mov bx, 0x5400
+    mov ax, 15
     int 0x60
 
 mov si, target_file
@@ -61,7 +86,7 @@ jmp 0x1000:0x0000
 
 target_file db "KERNEL  BIN"
 
-data0 db "FSLA File system 1.0 ", 0
+data0 db "FSLA File system 2.0 ", 0
 data1 db "____________________", 0x0A, 0x0D, 0x0A, 0x0D, 0x0A, 0x0D, 0x00
 data2 db "On Your Marks.. Boot!", 0x00
 data3 db "Oh well, that was awkward...", 0x00
@@ -73,7 +98,7 @@ data3 db "Oh well, that was awkward...", 0x00
 ;__________________
 read_file:
     ; Input:
-    ;       AL = Starting Cluster
+    ;       AX = Starting Cluster
     ;       ES =  File Segment
     ; Output:
     ;       ES:BX Loaded clusters, Max File size is 64KB~
@@ -83,10 +108,11 @@ read_file:
     mov dx, 0 ; Cluster Offset
 
 .loop:
-    push si
+    mov si, 0x4000 ; SI = FAT Buffer
+    shl ax, 1
 
     add si, ax
-    mov bl, [si]
+    mov bx, word [ds:si]
 
     push bx
     push ax
@@ -96,42 +122,43 @@ read_file:
 
     xor ax, ax
     mov ax, si
-    xor ah, ah
+    sub ax, 0x4000
+    shr ax, 1
     add ax, 16  ; Data Area starts at LBA 16
     int 0x60
 
     pop ax
     pop bx
 
-    cmp bl, 0xFF
+    cmp bx, 0xFFFF
     je .success
-    cmp bl, 0x00
+    cmp bx, 0x0000
     je .correrror
     add dx, 512
     cmp dx, 63488
     jae .memerror
-    mov al, bl
-    pop si
+    mov ax, bx
     jmp .loop
 .success:
-    pop si
     mov ah, 0x0E
     mov al, '#'
     int 0x10
     retf
 .memerror:
-    pop si
     mov si, .merror
     int 0x62
     retf
 .merror db "MEMFAULT_FS: File is way too large to be loaded! (64KB~)", 0x00
 
 .correrror:
-    pop si
     mov si, .cerror
     int 0x62
     retf
 .cerror db "FAT_FAULT_ERROR: Tried to load an empty cluster!", 0x00
+
+
+
+
 ;__________________
 ;__________________
 write_file:
@@ -147,9 +174,9 @@ write_file:
 .calcx:
     mov bx, 512
     xor dx, dx
-    mov cx, 2048 ; Max User-Generated file size
+    mov cx, 63488 ; Max User-Generated file size
     cmp ax, cx
-    ja .serror
+    jae .serror
     div bx
     cmp dx, 0
     je .go
@@ -157,19 +184,19 @@ write_file:
 .go:
     mov bp, ax
 .free:
-    mov cx, 256
     xor ax, ax
     mov ds, ax
     mov si, 0x4000
+    mov cx, 2296
     call .find 
     push si
     push si
     jmp .save_cluster
     
 .find:
-    cmp byte [si], 0x00
+    cmp word [ds:si], 0x0000
     je .fdone
-    inc si
+    add si, 2
     loop .find
     jmp .nerror
 .fdone:
@@ -192,17 +219,19 @@ write_file:
     int 0x62
     mov sp, word [cs:.og_stack]
     retf
-.serr db "File is too large to write! (2KB).", 0x00
+.serr db "File is too large to write! (64KB+).", 0x00
 .save_cluster:
-    mov dx, si    ; DL = Start Cluster
-    xor dh, dh    ; |__________________
-    mov byte [cs:.start_cluster], dl
+    mov dx, si    ; DX = Start Cluster
+    sub dx, 0x4000
+    shr dx, 1
+    mov word [cs:.start_cluster], dx
 .execute:
-    mov dx, si    ; DL = Target Cluster
-    xor dh, dh    ; |__________________
+    mov dx, si    ; DX = Target Cluster
     dec bp
 
     mov ax, dx
+    sub ax, 0x4000
+    shr ax, 1
     add ax, 16
     push bx
     mov bx, di
@@ -219,12 +248,17 @@ write_file:
     mov di, si
     xor ax, ax
     mov es, ax
-    inc si
-    mov cx, 256
+    add si, 2
+    mov ax, 0x51FE
+    sub ax, si
+    shr ax, 1
+    mov cx, ax
+    jcxz .nerror_short
     call .find
     mov dx, si
     sub dx, 0x4000
-    mov [es:di], dl
+    shr dx, 1
+    mov word [es:di], dx
     pop di
     pop es
     pop ax
@@ -233,23 +267,29 @@ write_file:
     
 
     add di, 512
-    mov cx, 256
-    mov si, 0x4000
-    call .find
     jmp .execute
+.nerror_short:
+    xor ax, ax
+    mov ds, ax
+    mov si, .nerr_short
+    int 0x62
+    mov sp, word [cs:.og_stack]
+    retf
+.nerr_short db "Maximum drive size exceeded! cannot write a new file.", 0x00
+
 
 .finished_next:
     pop si
     ; Quick Table Update
-    mov byte [ds:si], 0xFF
+    mov word [ds:si], 0xFFFF
     ; Directory Entry code..
 .DIR_find:
     mov cx, 64
     xor ax, ax
     mov es, ax
-    mov di, 0x4200 ; ROOT DIRECTORY
+    mov di, 0x5200 ; ROOT DIRECTORY
 .DIR_loop:
-    cmp byte [di], 0x00 ; Check for Empty Root directory Entry
+    cmp byte [es:di], 0x00 ; Check for Empty Root directory Entry
     je .last_write
     add di, 16
     loop .DIR_loop
@@ -275,28 +315,52 @@ write_file:
     inc di
     loop .DIR_loop2
 
-    mov al, [cs:.start_cluster]
-    mov [es:di], al
-    inc di
+    mov ax, word [cs:.start_cluster]
+    mov word [es:di], ax
+    add di, 2
     mov ax, [cs:.file_size]
     mov word [es:di], ax
 
     xor ax, ax
     mov es, ax
-    mov bx, 0x4000
     ; Save FAT / ROOT DIR on Disk
-    mov ax, 4
-    int 0x61
     mov ax, 5
-    mov bx, 0x4200
+    mov bx, 0x4000
     int 0x61
     mov ax, 6
+    mov bx, 0x4200
+    int 0x61
+    mov ax, 7
     mov bx, 0x4400
+    int 0x61
+    mov ax, 8
+    mov bx, 0x4600
+    int 0x61
+    mov ax, 9
+    mov bx, 0x4800
+    int 0x61
+    mov ax, 10
+    mov bx, 0x4A00
+    int 0x61
+    mov ax, 11
+    mov bx, 0x4C00
+    int 0x61
+    mov ax, 12
+    mov bx, 0x4E00
+    int 0x61
+    mov ax, 13
+    mov bx, 0x5000
+    int 0x61
+    mov ax, 14
+    mov bx, 0x5200
+    int 0x61
+    mov ax, 15
+    mov bx, 0x5400
     int 0x61
     mov sp, word [cs:.og_stack]
     retf
 .direrror db "Max Files for the directory exceeded!", 0x00
-.start_cluster db 0x00
+.start_cluster dw 0x0000
 .file_size dw 0x0000
 .og_seg dw 0x0000
 .og_off dw 0x0000
@@ -311,14 +375,14 @@ search_file:
     ; Input:
     ;       DS:SI = Filename (11 chars max)
     ; Output:
-    ;       AL = File's Starting Cluster
+    ;       AX = File's Starting Cluster
     ;       BL = does it exists?
     ;       CX = File Size
     mov dx, 0 ; Files Counted | Max Files in root dir is 64
     mov cx, 11 ; File Name size
     xor ax, ax
     mov es, ax
-    mov di, 0x4200
+    mov di, 0x5200
     push di
     push si
 .loop:
@@ -332,10 +396,10 @@ search_file:
     push di
     add di, 11 ; Get Starting Cluster
     xor ax, ax
-    mov al, [es:di]
+    mov ax, word [es:di]
     pop di
-    add di, 12 ; Get Size
-    mov cx, [es:di]
+    add di, 13 ; Get Size
+    mov cx, word [es:di]
     mov bl, 0xFF
     retf
 .invalid:
@@ -448,7 +512,7 @@ DIR_cmd:
     int 0x10
     mov al, 0x0D
     int 0x10
-    mov si, 0x4200 ; ROOT DIR
+    mov si, 0x5200 ; ROOT DIR
     mov cx, 64
     mov ah, 0x0E
     mov al, 0x0D
@@ -488,7 +552,7 @@ rem_file:
     mov cx, 11
     xor ax, ax
     mov es, ax
-    mov di, 0x4200
+    mov di, 0x5200
     push di
     push si
 .looprem:
@@ -506,8 +570,7 @@ rem_file:
     mov es, ax
     mov byte [es:di], 0x00 
     add di, 11 ; Get Starting Cluster
-    xor ax, ax
-    mov al, [es:di]
+    mov ax, word [es:di]
     jmp .read_file
 .invalid:
     mov bh, 0x00
@@ -536,7 +599,7 @@ rem_file:
 
 .read_file:
     ; Input:
-    ;       AL = Starting Cluster
+    ;       AX = Starting Cluster
     ; Output:
     ;       Just removes the file rootdir entry and FAT entries
     xor dx, dx
@@ -545,21 +608,21 @@ rem_file:
 
 .loop:
     push si
-
+    shl ax, 1
     add si, ax ; si = current cluster
-    mov bl, [si] ; bl = next cluster
+    mov bx, word [si] ; bx = next cluster
 
-    cmp bl, 0xFF ; Check for last cluster
+    cmp bx, 0xFFFF ; Check for last cluster
     je .success
-    cmp bl, 0x00
+    cmp bx, 0x0000
     je .correrror
-    mov byte [ds:si], 0x00
+    mov word [ds:si], 0x0000
 
-    mov al, bl
+    mov ax, bx
     pop si
     jmp .loop
 .success:
-    mov byte [ds:si], 0x00
+    mov word [ds:si], 0x0000
     pop si
     mov ah, 0x0E
     mov al, '#'
@@ -567,15 +630,39 @@ rem_file:
     xor ax, ax
     mov es, ax
     mov bx, 0x4000
-    mov ax, 4
-    int 0x61
-    mov bx, 0x4200
     mov ax, 5
     int 0x61
-    mov bx, 0x4400
+    mov bx, 0x4200
     mov ax, 6
     int 0x61
-    
+    mov bx, 0x4400
+    mov ax, 7
+    int 0x61
+    mov bx, 0x4600
+    mov ax, 8
+    int 0x61
+    mov bx, 0x4800
+    mov ax, 9
+    int 0x61
+    mov bx, 0x4A00
+    mov ax, 10
+    int 0x61
+    mov bx, 0x4C00
+    mov ax, 11
+    int 0x61
+    mov bx, 0x4E00
+    mov ax, 12
+    int 0x61
+    mov bx, 0x5000
+    mov ax, 13
+    int 0x61
+    mov bx, 0x5200
+    mov ax, 14
+    int 0x61
+    mov bx, 0x5400
+    mov ax, 15
+    int 0x61
+
     retf
 
 .correrror:
@@ -587,5 +674,5 @@ rem_file:
 ;__________________
 ;__________________
 
-times 1534 - ($ - $$) db 0x90 ; NOP
+times 2046 - ($ - $$) db 0x90 ; NOP
 jmp $                       ; Halts system in-case of uncontrolled flow of CS:IP

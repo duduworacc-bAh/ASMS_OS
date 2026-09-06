@@ -25,4 +25,5 @@ current avaible commands:
 
 The Entire code was written in assembly and designed to run on CPU 80286 / i286.
 
-the system uses an 8-bit FAT with 16 bytes per root entry / 64 max files in the root directory.
+_the system uses an 8-bit FAT with 16 bytes per root entry / 64 max files in the root directory._
+The System now uses C-FAT16! root entry size still remains the same, Actual FAT16 Programs / MS-DOS Programs still arent supported.

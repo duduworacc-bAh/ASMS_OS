@@ -17,9 +17,12 @@ mov si, testmsg
 int 0x62
 mov si, testmsg1
 int 0x62
+mov si, testmsg2
+int 0x62
 jmp code
 testmsg db "Welcome to ASMS-OS!, made with ", 0x03, 0x00
-testmsg1 db "By Dudedev and with support from KiddieOS.Community!", 0x00
+testmsg1 db "By Dudedev and with support from KiddieOS.Community", 0x00
+testmsg2 db "And from WinWorldPC.com!", 0x00
 
 ;_____________________________________
 ;_____________________________________
@@ -312,13 +315,13 @@ PROMPT:
 .tes_handler:
     mov ax, 0x1000
     mov es, ax
-    mov di, 0xE200
+    mov di, 0xE500
     mov si, 0XE200
     call file_convert
 
     mov ax, 0x1000
     mov ds, ax
-    mov si, 0xE200
+    mov si, 0xE500
     xor bl, bl
     call far 0x0000:0x2009
     cmp bl, 0xFF
@@ -327,8 +330,9 @@ PROMPT:
     
     mov ax, 0x1000
     mov ds, ax
-    mov si, 0xE200
+    mov si, 0xE500
     mov ax, 0x1E30
+    xor di, di
     mov es, ax
     mov ax, 256   ; Standard Size for buffer is 256 bytes, so here we assume the file will be 256 bytes long
     call far 0x0000:0x2006
@@ -346,12 +350,12 @@ PROMPT:
 .rem_handler:
     mov ax, 0x1000
     mov es, ax
-    mov di, 0xE200
+    mov di, 0xE500
     mov si, 0XE200
     call file_convert
     mov ax, 0x1000
     mov ds, ax
-    mov si, 0xE200
+    mov si, 0xE500
     call far 0x0000:0x200F
     mov ax, 0x1000
     mov ds, ax
@@ -360,12 +364,12 @@ PROMPT:
 .che_handler:
     mov ax, 0x1000
     mov es, ax
-    mov di, 0xE200
+    mov di, 0xE500
     mov si, 0XE200
     call file_convert
     mov ax, 0x1000
     mov ds, ax
-    mov si, 0xE200
+    mov si, 0xE500
     call far 0x0000:0x2009
     cmp bl, 0xFF
     jne .cheferr
@@ -393,12 +397,12 @@ PROMPT:
 .run_handler:
     mov ax, 0x1000
     mov es, ax
-    mov di, 0xE200
+    mov di, 0xE500
     mov si, 0XE200
     call file_convert
     mov ax, 0x1000
     mov ds, ax
-    mov si, 0xE200
+    mov si, 0xE500
     call far 0x0000:0x2009
     cmp bl, 0xFF
     jne .runferr
@@ -423,12 +427,12 @@ PROMPT:
 .typ_handler:
     mov ax, 0x1000
     mov es, ax
-    mov di, 0xE200
+    mov di, 0xE500
     mov si, 0XE200
     call file_convert
     mov ax, 0x1000
     mov ds, ax
-    mov si, 0xE200
+    mov si, 0xE500
     call far 0x0000:0x2009
     push cx
     push ax
@@ -458,7 +462,7 @@ PROMPT:
     je .typbreak
     int 0x10
     loop .typloop
-
+.typfinish:
     mov al, 0x0A
     int 0x10
     mov al, 0x0D
@@ -473,8 +477,8 @@ PROMPT:
     Int 0x10
     mov al, 0x0D
     int 0x10
-    jmp .typloop
-    
+    loop .typloop
+    jmp .typfinish
 .typferr:
     pop ax
     pop cx
@@ -549,61 +553,115 @@ upper:
     ret
 
 file_convert:
-    ; Converts the target string into 8:3 FAT Format
-    ; 
     ; Input:
-    ;   ES:SI = Buffer
+    ;   ES:SI = Input ASCII string (null/space terminated)
+    ;   ES:DI = Output Buffer (11 bytes FAT 8.3 format)
     ; Output:
-    ;   ES:DI = Output Buffer
-    
-    mov cx, 256 ; buffer size
-    mov dx, di
-.nloop:
-    mov al, byte [es:si]
-    cmp al, '.'
-    je .continue
-    mov byte [es:di], al
-    inc si
+    ;   CF = 0 (Success, ES:DI contains valid 8.3 name)
+    ;   CF = 1 (Error)
+
+    push di
+    mov dx, di       
+
+
+    mov cx, 11
+    mov al, ' '
+.fill:
+    mov [es:di], al
     inc di
-    loop .nloop  ; |
-                 ;_|
+    loop .fill
+
+    mov di, dx      
+    xor bx, bx 
+    mov cx, 256  
+
+.name_loop:
+    mov al, [es:si]
+
+    cmp al, '.'
+    je .dot
+
+    cmp al, 0
+    je .overr
+
+    cmp al, ' '
+    je .overr
+    cmp bx, 8
+    jae .skip_name
+
+    mov [es:di], al
+    inc di
+    inc bx
+    inc si
+    loop .name_loop
+    jmp .overr
+
+.skip_name:
+    inc si
+    dec cx
+    jz .overr
+    mov al, [es:si]
+    cmp al, '.'
+    je .dot
+    cmp al, 0
+    je .overr
+    cmp al, ' '
+    je .overr
+    jmp .skip_name
+
+.dot:
+    cmp bx, 0          
+    je .overr
+
+    inc si      
+    mov di, dx
+    add di, 8            
+    xor bx, bx        
+    mov cx, 3
+
+.ext_loop:
+    mov al, [es:si]
+
+    cmp al, 0
+    je .ext_check
+
+    cmp al, ' '
+    je .ext_check
+
+    mov [es:di], al
+    inc di
+    inc si
+    inc bx
+    loop .ext_loop
+
+.ext_skip:
+    mov al, [es:si]
+    cmp al, 0
+    je .ext_check
+    cmp al, ' '
+    je .ext_check
+    inc si
+    jmp .ext_skip
+
+.ext_check:
+    cmp bx, 0             
+    je .overr
+
+    pop di
+    clc                  
+    ret
+
 .overr:
+    pop di
     mov ax, 0x1000
     mov ds, ax
     mov si, .overrdb
     int 0x62
-    ret
-.continue:
-    inc si
-    mov bp, di
-
-
-    push si
-    mov di, dx
-    add di, 8
-    mov cx, 3
-.lastloop:
-    mov al, byte [es:si]
-    mov byte [es:di], al
-    inc si
-    inc di
-    loop .lastloop
-    pop si
-
-    mov di, bp
-    mov cx, dx
-    add cx, 8
-    cmp di, cx
-    jae .skip_pad
-.pad_loop:
-    mov byte [es:di], ' '
-    inc di
-    cmp di, cx
-    jb .pad_loop
-.skip_pad:
+    stc                    
     ret
 
-.overrdb db "Filename is way too large or extension not specified!", 0x00
+.overrdb:
+    db "Filename is way too large or extension not specified!", 0
 
 
     

@@ -1,6 +1,6 @@
 0x00000 - 0x003FF | Some Custom IVT entries
 0x02000 - 0x025F0 | FSLA - CALL FAR vector table
-0x04000 - 0x040FF | FAT Table / Cluster table
+0x04000 - 0x0.... | FAT Table / Cluster table
 0x04200 - 0x045FF | Root Directory 
 0x07C02 - 0x07C0B | Drive Label
 0x07C02 - 0x07C21 | Drive metadata (Under development, contains only drive label)

@@ -11,7 +11,7 @@ current avaible commands:
   
   **REBZOO**: No Arguments,Reboots the system.
   
-  **WRITE** : Arg1 = "Filename", Arg2 = <Data Buffer>, Create a new root directory file with **"Filename"** as name and writes 256 bytes (only 1 cluster) from the provided data in **"Data Buffer"**.
+  **WRITE** : Arg1 = "Filename", Arg2 = "Data Buffer", Create a new root directory file with **"Filename"** as name and writes 256 bytes (only 1 cluster) from the provided data in **"Data Buffer"**.
   
   **DEL**   : Arg1 = "Filename", Deletes the file with the name **"Filename"** (do not delete **kernel.bin**)
   
